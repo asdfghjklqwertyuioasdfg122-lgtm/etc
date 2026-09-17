@@ -3,21 +3,40 @@
  * منصة ETC الذكية للمحاسبة والمراجعة والضرائب وإدارة الأعمال
  */
 
-export type UserRole = 'Owner' | 'Admin' | 'ChiefAccountant' | 'Auditor' | 'TaxConsultant' | 'Accountant' | 'Viewer';
+export interface RolePermission {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+}
+
+export interface CustomRole {
+  id: string;
+  name: string;
+  description: string;
+  permissions: string[];
+  isSystem?: boolean;
+}
+
+export type UserRole = string;
 
 export interface User {
   id: string;
   fullName: string;
   username: string;
   email: string;
-  passwordHash: string; // Stored securely
+  phone?: string;
+  department?: string;
+  jobTitle?: string;
+  passwordHash: string; // Stored securely with SHA-256
   role: UserRole;
-  isActive: boolean;
+  isActive: boolean; // ✅ نشط / ⛔ موقوف
   createdAt: string;
   lastLoginAt?: string;
   lastLoginIp?: string;
   device?: string;
   isOwner?: boolean;
+  permissions?: string[];
 }
 
 export interface LoginHistory {

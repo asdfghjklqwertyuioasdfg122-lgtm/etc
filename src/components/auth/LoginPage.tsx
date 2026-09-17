@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { StorageService } from '../../services/storage';
 import { User } from '../../types';
-import { Lock, User as UserIcon, ShieldAlert, KeyRound, Info, AlertCircle, CheckCircle2, ShieldCheck, Eye, EyeOff } from 'lucide-react';
+import { Lock, User as UserIcon, ShieldAlert, KeyRound, Info, AlertCircle, ShieldCheck, Eye, EyeOff, Crown, Users } from 'lucide-react';
 import { BluePyramidLogo } from '../common/BluePyramidLogo';
 
 interface LoginPageProps {
@@ -9,7 +9,10 @@ interface LoginPageProps {
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
-  // STRICT RULE: Username and Password MUST be empty / blank!
+  // Mode: 'owner' (دخول المالك) | 'staff' (دخول الموظفين)
+  const [loginMode, setLoginMode] = useState<'owner' | 'staff'>('owner');
+
+  // STRICT RULE: Username and Password MUST ALWAYS BE BLANK!
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -17,6 +20,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showForgotModal, setShowForgotModal] = useState(false);
+
+  const handleModeChange = (mode: 'owner' | 'staff') => {
+    setLoginMode(mode);
+    setUsername('');
+    setPassword('');
+    setError(null);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +38,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     }
 
     setIsSubmitting(true);
-    const result = StorageService.login(username, password);
+
+    const result =
+      loginMode === 'owner'
+        ? StorageService.loginOwner(username, password)
+        : StorageService.login(username, password);
 
     if (result.success && result.user) {
       if (rememberMe) {
@@ -46,7 +60,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4 sm:p-6 lg:p-8" dir="rtl">
       <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[640px]">
-        {/* Left / Visual Side: Large Blue Pyramid & Brand Presentation */}
+        {/* Left / Visual Side: Blue Pyramid & Brand Presentation */}
         <div className="lg:col-span-6 bg-gradient-to-br from-[#0A4DA3] via-[#1565C0] to-[#082F64] text-white p-8 md:p-12 flex flex-col justify-between relative overflow-hidden">
           {/* Subtle Geometric Background Elements */}
           <div className="absolute top-0 right-0 -mr-16 -mt-16 w-72 h-72 rounded-full bg-white/5 blur-2xl pointer-events-none" />
@@ -63,7 +77,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
           {/* Central Hero: Large Blue Pyramid & Platform Title */}
           <div className="relative z-10 my-auto py-8 text-center flex flex-col items-center">
-            {/* Large Blue Pyramid */}
             <div className="p-4 rounded-3xl bg-white/10 backdrop-blur-md border border-white/20 shadow-2xl mb-6">
               <BluePyramidLogo size="xl" animate />
             </div>
@@ -81,7 +94,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             </p>
 
             <p className="text-xs text-blue-200/90 mt-3 max-w-md leading-relaxed">
-              المنظومة المالية والإدارية الشاملة للشركات والمنشآت في جمهورية مصر العربية
+              المنظومة المالية والإدارية المتكاملة والمحمية بنظام أمان وتشفير متقدم
             </p>
 
             {/* Highlights Pillars */}
@@ -103,22 +116,66 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
           {/* Bottom Security Note */}
           <div className="relative z-10 pt-4 border-t border-white/15 flex items-center justify-between text-[11px] text-blue-200">
-            <span>بيانات فعلية موثوقة 100%</span>
-            <span>بإشراف المالك: محمد عبد الغني</span>
+            <span>بيانات فعلية مشفرة SHA-256</span>
+            <span>مالك النظام الدائم: محمد عبد الغني</span>
           </div>
         </div>
 
-        {/* Right Side: Glass-style Card Login Form */}
-        <div className="lg:col-span-6 p-8 md:p-12 flex flex-col justify-center bg-white/80 backdrop-blur-xl relative">
+        {/* Right Side: Login Form */}
+        <div className="lg:col-span-6 p-8 md:p-12 flex flex-col justify-center bg-white/90 backdrop-blur-xl relative">
           <div className="max-w-md mx-auto w-full">
-            <div className="mb-8">
+            {/* Mode Selector Tabs: دخول المالك vs دخول الموظفين */}
+            <div className="grid grid-cols-2 gap-1.5 p-1.5 bg-slate-100/90 rounded-2xl mb-8 border border-slate-200">
+              <button
+                type="button"
+                onClick={() => handleModeChange('owner')}
+                className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  loginMode === 'owner'
+                    ? 'bg-[#0A4DA3] text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                }`}
+              >
+                <Crown className="w-4 h-4 text-amber-300" />
+                <span>دخول المالك</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleModeChange('staff')}
+                className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  loginMode === 'staff'
+                    ? 'bg-[#0A4DA3] text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                <span>دخول الموظفين</span>
+              </button>
+            </div>
+
+            {/* Page Title & Subtitle */}
+            <div className="mb-6">
               <div className="flex items-center gap-2 mb-2 lg:hidden">
                 <BluePyramidLogo size="sm" />
                 <span className="font-black text-[#0A4DA3]">منصة ETC الذكية</span>
               </div>
-              <h2 className="text-2xl font-black text-slate-900">تسجيل الدخول للنظام</h2>
+              <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+                {loginMode === 'owner' ? (
+                  <>
+                    <Crown className="w-6 h-6 text-amber-500" />
+                    <span>دخول المالك</span>
+                  </>
+                ) : (
+                  <>
+                    <Users className="w-6 h-6 text-[#0A4DA3]" />
+                    <span>دخول الموظفين</span>
+                  </>
+                )}
+              </h2>
               <p className="text-xs text-slate-500 mt-1">
-                أدخل بيانات اعتمادك المصرح بها للدخول إلى منظومة الإدارة
+                {loginMode === 'owner'
+                  ? 'بوابة الدخول الحصرية لمالك النظام الدائم (محمد عبد الغني)'
+                  : 'بوابة الدخول لحسابات الموظفين المعتمدة من قِبل مالك النظام'}
               </p>
             </div>
 
@@ -187,13 +244,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   <span>تذكرني على هذا الجهاز</span>
                 </label>
 
-                <button
-                  type="button"
-                  onClick={() => setShowForgotModal(true)}
-                  className="text-[#0A4DA3] hover:text-[#1565C0] font-semibold hover:underline cursor-pointer"
-                >
-                  نسيت كلمة المرور؟
-                </button>
+                {loginMode === 'staff' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotModal(true)}
+                    className="text-[#0A4DA3] hover:text-[#1565C0] font-semibold hover:underline cursor-pointer"
+                  >
+                    نسيت كلمة المرور؟
+                  </button>
+                )}
               </div>
 
               <button
@@ -202,23 +261,29 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 className="w-full py-3 bg-gradient-to-r from-[#0A4DA3] to-[#1565C0] hover:from-[#1565C0] hover:to-[#0A4DA3] text-white font-bold rounded-xl shadow-md transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 mt-2 text-sm"
               >
                 <KeyRound className="w-4 h-4" />
-                <span>{isSubmitting ? 'جارٍ التحقق من الهوية...' : 'تسجيل الدخول الآمن'}</span>
+                <span>
+                  {isSubmitting
+                    ? 'جارٍ التحقق من الهوية...'
+                    : loginMode === 'owner'
+                    ? 'دخول المالك'
+                    : 'تسجيل دخول الموظف'}
+                </span>
               </button>
             </form>
 
-            {/* Security Banner: Zero Public Registration */}
+            {/* Security Policy Notice: Zero Public Registration */}
             <div className="mt-8 pt-5 border-t border-slate-100 flex items-start gap-3 bg-blue-50/60 p-3.5 rounded-xl border border-blue-100/80">
               <ShieldAlert className="w-5 h-5 text-[#0A4DA3] flex-shrink-0 mt-0.5" />
               <div className="text-[11px] leading-relaxed text-slate-600">
-                <span className="font-bold text-[#0A4DA3] block mb-0.5">سياسة الأمان والرقابة الداخلية:</span>
-                التسجيل العام معطّل بالكامل. الحسابات والصلاحيات يتم إنشاؤها وتفعيلها حصرياً بواسطة مالك النظام من وحدة إدارة المستخدمين.
+                <span className="font-bold text-[#0A4DA3] block mb-0.5">سياسة الأمان والرقابة:</span>
+                التسجيل العام معطل تماماً. لا يمكن لأي مستخدم إنشاء حساب بنفسه. جميع الحسابات والصلاحيات تنشأ وتُدار يدوياً وحصرياً بواسطة مالك النظام (محمد عبد الغني).
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Forgot Password Modal */}
+      {/* Forgot Password Modal for Staff */}
       {showForgotModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 border border-slate-200">
@@ -227,8 +292,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             </div>
             <h3 className="text-base font-bold text-slate-900 mb-2">إعادة تعيين كلمة المرور</h3>
             <p className="text-xs text-slate-600 leading-relaxed mb-6">
-              وفقاً للمعايير الرقابية وحماية الدفاتر، لا يُسمح بتعديل كلمات المرور آلياً بدون مصادقة مباشرة.
-              يرجى مراجعة <strong className="text-slate-900 font-bold">مالك النظام (محمد عبد الغني)</strong> مباشرةً لإعادة تعيين كلمة المرور الخاصة بحسابك من وحدة إدارة المستخدمين.
+              وفقاً للمعايير الرقابية الصارمة لمنصة ETC، لا يمكن إعادة تعيين كلمات المرور آلياً.
+              يرجى التوجه إلى <strong className="text-slate-900 font-bold">مالك النظام (محمد عبد الغني)</strong> مباشرةً لإعادة تعيين كلمة المرور الخاصة بحسابك من وحدة إدارة المستخدمين.
             </p>
             <button
               onClick={() => setShowForgotModal(false)}
@@ -242,4 +307,3 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     </div>
   );
 };
-

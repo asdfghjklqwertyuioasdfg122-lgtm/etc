@@ -90,7 +90,7 @@ export const OwnerSetupWizard: React.FC<OwnerSetupWizardProps> = ({ onOwnerCreat
           </p>
           <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 bg-white/15 text-blue-100 rounded-full text-xs font-semibold backdrop-blur-xs">
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            التهيئة الأولى للمنصة • إعداد مالك النظام
+            التهيئة الأولى للنظام • إعداد مالك النظام
           </div>
         </div>
 
@@ -99,10 +99,10 @@ export const OwnerSetupWizard: React.FC<OwnerSetupWizardProps> = ({ onOwnerCreat
           <div className="mb-6 border-b border-slate-100 pb-4">
             <div className="flex items-center gap-3 text-[#0A4DA3] font-bold text-lg mb-1">
               <ShieldCheck className="w-6 h-6 text-[#0A4DA3]" />
-              <h2>إعداد مالك النظام (System Owner)</h2>
+              <h2>إعداد مالك النظام</h2>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed">
-              وفقاً لقواعد الأمان الصارمة لمنصة ETC، تبدأ المنصة بدون أي مستخدمين افتراضيين. يتوجب على مالك النظام اختيار اسم المستخدم وكلمة المرور يدوياً.
+              مالك النظام الدائم: <strong className="text-slate-800 font-bold">محمد عبد الغني</strong>. يرجى اختيار اسم المستخدم وكلمة المرور يدوياً لإنشاء حساب المالك الدائم للنظام.
             </p>
           </div>
 

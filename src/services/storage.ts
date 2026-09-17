@@ -18,11 +18,15 @@ import {
   SystemNotification,
   ChatMessage,
   UploadedDocument,
+  CustomRole,
+  RolePermission,
 } from '../types';
+import { hashPassword, verifyPassword } from '../utils/crypto';
 
 const STORAGE_KEYS = {
-  USERS: 'etc_erp_users_v2',
-  CURRENT_USER: 'etc_erp_current_user_v2',
+  USERS: 'etc_erp_users_v3',
+  CURRENT_USER: 'etc_erp_current_user_v3',
+  ROLES: 'etc_erp_roles_v3',
   LOGIN_HISTORY: 'etc_erp_login_history',
   ACTIVITY_LOGS: 'etc_erp_activity_logs',
   SESSIONS: 'etc_erp_sessions',
@@ -38,6 +42,72 @@ const STORAGE_KEYS = {
   DOCUMENTS: 'etc_erp_documents',
   REMEMBER_USER: 'etc_erp_remember_user',
 };
+
+// System Permissions catalog
+export const SYSTEM_PERMISSIONS: RolePermission[] = [
+  { id: 'accounting.view', name: 'استعراض القيود والحسابات', category: 'المحاسبة', description: 'الاطلاع على دفتر اليومية وميزان المراجعة' },
+  { id: 'accounting.create', name: 'تسجيل قيود اليومية', category: 'المحاسبة', description: 'إدخال قيود اليومية المزدوجة' },
+  { id: 'accounting.post', name: 'ترحيل واعتماد القيود', category: 'المحاسبة', description: 'اعتماد وترحيل القيود للحسابات العامة' },
+  { id: 'statements.view', name: 'القوائم المالية والختامية', category: 'التقارير', description: 'استعراض قائمة الدخل والمركز المالي والتدفقات' },
+  { id: 'commercial.manage', name: 'العملاء والموردون والمخزون', category: 'التجاري', description: 'إدارة شركاء الأعمال وحركات المستودعات' },
+  { id: 'tax.manage', name: 'المنظومة الضريبية المصرية', category: 'الضرائب', description: 'إعداد ومراجعة إقرارات القيمة المضافة ونموذج 41' },
+  { id: 'audit.manage', name: 'المراجعة والرقابة الدفترية', category: 'المراجعة', description: 'إعداد أوراق العمل وفحص الامتثال' },
+  { id: 'analysis.view', name: 'التحليل المالي والمؤشرات', category: 'التحليل', description: 'الاطلاع على نسب السيولة والربحية والـ KPIs' },
+  { id: 'ai.access', name: 'مستشار ETC AI الذكي', category: 'الذكاء الاصطناعي', description: 'استخدام المساعد المالي والضريبي الذكي' },
+  { id: 'user.manage', name: 'إدارة المستخدمين والصلاحيات', category: 'الأمان', description: 'حصرية لمالك النظام (محمد عبد الغني)' },
+];
+
+const DEFAULT_ROLES: CustomRole[] = [
+  {
+    id: 'role_owner',
+    name: '👑 System Owner',
+    description: 'مالك النظام الدائم - صلاحيات مطلقة كاملة لإدارة المنصة والمستخدمين',
+    permissions: SYSTEM_PERMISSIONS.map((p) => p.id),
+    isSystem: true,
+  },
+  {
+    id: 'role_admin',
+    name: 'مدير نظام (Admin)',
+    description: 'إدارة العمليات التشغيلية والمحاسبية والفنية',
+    permissions: ['accounting.view', 'accounting.create', 'accounting.post', 'statements.view', 'commercial.manage', 'tax.manage', 'audit.manage', 'analysis.view', 'ai.access'],
+    isSystem: true,
+  },
+  {
+    id: 'role_chief_accountant',
+    name: 'رئيس حسابات (Chief Accountant)',
+    description: 'مراجعة وترحيل القيود وإعداد القوائم الختامية',
+    permissions: ['accounting.view', 'accounting.create', 'accounting.post', 'statements.view', 'commercial.manage', 'tax.manage', 'analysis.view', 'ai.access'],
+    isSystem: true,
+  },
+  {
+    id: 'role_auditor',
+    name: 'مراجع حسابات (Auditor)',
+    description: 'فحص الحسابات والرقابة الدفترية وأوراق التدقيق',
+    permissions: ['accounting.view', 'statements.view', 'audit.manage', 'analysis.view', 'tax.manage', 'ai.access'],
+    isSystem: true,
+  },
+  {
+    id: 'role_tax_consultant',
+    name: 'مستشار ضريبي (Tax Consultant)',
+    description: 'متابعة الفاتورة الإلكترونية والإقرارات الضريبية المصرية',
+    permissions: ['tax.manage', 'statements.view', 'accounting.view', 'ai.access'],
+    isSystem: true,
+  },
+  {
+    id: 'role_accountant',
+    name: 'محاسب (Accountant)',
+    description: 'تسجيل قيود اليومية ومتابعة العملاء والموردين',
+    permissions: ['accounting.view', 'accounting.create', 'commercial.manage', 'ai.access'],
+    isSystem: true,
+  },
+  {
+    id: 'role_viewer',
+    name: 'مشاهد فقط (Viewer)',
+    description: 'استعراض التقارير دون إمكانية التعديل أو الحذف',
+    permissions: ['statements.view', 'analysis.view'],
+    isSystem: true,
+  },
+];
 
 // Initial standard Egyptian Chart of Accounts framework (Zero balances)
 const STANDARD_EGYPTIAN_CHART: Account[] = [
@@ -84,9 +154,134 @@ function setStored<T>(key: string, value: T): void {
 }
 
 export const StorageService = {
+  // Roles Management (Owner exclusive)
+  getRoles(): CustomRole[] {
+    const roles = getStored<CustomRole[]>(STORAGE_KEYS.ROLES, []);
+    if (roles.length === 0) {
+      setStored(STORAGE_KEYS.ROLES, DEFAULT_ROLES);
+      return DEFAULT_ROLES;
+    }
+    return roles;
+  },
+
+  createRole(
+    editor: User,
+    roleData: { name: string; description: string; permissions: string[] }
+  ): { success: boolean; role?: CustomRole; error?: string } {
+    if (!editor.isOwner) {
+      return { success: false, error: 'فقط مالك النظام (محمد عبد الغني) يمتلك صلاحية إنشاء الأدوار.' };
+    }
+    if (!roleData.name.trim()) {
+      return { success: false, error: 'يرجى إدخال مسمى الدور.' };
+    }
+    const roles = this.getRoles();
+    if (roles.some((r) => r.name.toLowerCase() === roleData.name.trim().toLowerCase())) {
+      return { success: false, error: 'مسمى الدور موجود بالفعل.' };
+    }
+
+    const newRole: CustomRole = {
+      id: 'role_' + Date.now(),
+      name: roleData.name.trim(),
+      description: roleData.description.trim(),
+      permissions: roleData.permissions,
+      isSystem: false,
+    };
+    roles.push(newRole);
+    setStored(STORAGE_KEYS.ROLES, roles);
+
+    this.addActivityLog({
+      userId: editor.id,
+      username: editor.username,
+      action: 'إنشاء دور وصلاحيات جديدة',
+      module: 'إدارة الأدوار والصلاحيات',
+      details: `قام المالك بإنشاء الدور (${newRole.name}) وتحديد ${newRole.permissions.length} صلاحية له`,
+    });
+
+    return { success: true, role: newRole };
+  },
+
+  updateRole(
+    editor: User,
+    roleId: string,
+    roleData: { name: string; description: string; permissions: string[] }
+  ): { success: boolean; error?: string } {
+    if (!editor.isOwner) {
+      return { success: false, error: 'فقط مالك النظام يمتلك صلاحية تعديل الأدوار.' };
+    }
+    const roles = this.getRoles();
+    const index = roles.findIndex((r) => r.id === roleId);
+    if (index === -1) return { success: false, error: 'الدور غير موجود.' };
+
+    if (roles[index].id === 'role_owner') {
+      return { success: false, error: 'دور مالك النظام دائم ولا يمكن تعديل صلاحياته الأساسية.' };
+    }
+
+    roles[index] = {
+      ...roles[index],
+      name: roleData.name.trim(),
+      description: roleData.description.trim(),
+      permissions: roleData.permissions,
+    };
+    setStored(STORAGE_KEYS.ROLES, roles);
+
+    this.addActivityLog({
+      userId: editor.id,
+      username: editor.username,
+      action: 'تعديل صلاحيات دور',
+      module: 'إدارة الأدوار والصلاحيات',
+      details: `قام المالك بتحديث صلاحيات الدور (${roles[index].name})`,
+    });
+
+    return { success: true };
+  },
+
+  deleteRole(editor: User, roleId: string): { success: boolean; error?: string } {
+    if (!editor.isOwner) {
+      return { success: false, error: 'فقط مالك النظام يمتلك صلاحية حذف الأدوار.' };
+    }
+    const roles = this.getRoles();
+    const target = roles.find((r) => r.id === roleId);
+    if (!target) return { success: false, error: 'الدور غير موجود.' };
+    if (target.isSystem || target.id === 'role_owner') {
+      return { success: false, error: 'لا يمكن حذف الأدوار النظامية الأساسية.' };
+    }
+
+    const updated = roles.filter((r) => r.id !== roleId);
+    setStored(STORAGE_KEYS.ROLES, updated);
+
+    this.addActivityLog({
+      userId: editor.id,
+      username: editor.username,
+      action: 'حذف دور نظامي',
+      module: 'إدارة الأدوار والصلاحيات',
+      details: `قام المالك بحذف الدور (${target.name})`,
+    });
+
+    return { success: true };
+  },
+
   // Users & Setup
   getUsers(): User[] {
-    return getStored<User[]>(STORAGE_KEYS.USERS, []);
+    const raw = getStored<User[]>(STORAGE_KEYS.USERS, []);
+    // Strict Sanitization: Remove any demo / sample users (admin, demo, test, etc.)
+    const cleansed = raw.filter((u) => {
+      const un = (u.username || '').toLowerCase().trim();
+      return un !== 'admin' && un !== 'demo' && un !== 'test' && un !== 'user';
+    });
+
+    // Enforce owner permanent identity
+    const ownerIndex = cleansed.findIndex((u) => u.isOwner === true);
+    if (ownerIndex !== -1) {
+      cleansed[ownerIndex].fullName = 'محمد عبد الغني';
+      cleansed[ownerIndex].role = '👑 System Owner';
+      cleansed[ownerIndex].isOwner = true;
+      cleansed[ownerIndex].isActive = true;
+    }
+
+    if (cleansed.length !== raw.length) {
+      setStored(STORAGE_KEYS.USERS, cleansed);
+    }
+    return cleansed;
   },
 
   hasOwner(): boolean {
@@ -106,41 +301,54 @@ export const StorageService = {
     email: string;
   }): { success: boolean; user?: User; error?: string } {
     if (this.hasOwner()) {
-      return { success: false, error: 'تم إعداد مالك النظام مسبقاً.' };
+      return { success: false, error: 'تم إعداد مالك النظام مسبقاً ولا يمكن تكرار الإعداد.' };
     }
 
-    if (!data.username.trim() || !data.password.trim() || !data.fullName.trim()) {
-      return { success: false, error: 'جميع الحقول مطلوبة.' };
+    if (!data.username.trim() || !data.password || !data.email.trim()) {
+      return { success: false, error: 'جميع الحقول مطلوبة لإعداد حساب المالك.' };
     }
+
+    const cleanUsername = data.username.trim();
+    if (cleanUsername.length < 3) {
+      return { success: false, error: 'اسم المستخدم يجب ألا يقل عن 3 أحرف أو أرقام.' };
+    }
+
+    if (data.password.length < 6) {
+      return { success: false, error: 'كلمة المرور يجب ألا تقل عن 6 خانات.' };
+    }
+
+    // Hash password with SHA-256 and platform salt
+    const hashed = hashPassword(data.password);
 
     const newOwner: User = {
       id: 'owner_' + Date.now(),
-      fullName: data.fullName.trim(),
-      username: data.username.trim(),
+      fullName: 'محمد عبد الغني', // Permanent System Owner
+      username: cleanUsername,
       email: data.email.trim(),
-      passwordHash: btoa(data.password), // standard reversible simulation for zero-backend
-      role: 'Owner',
-      isActive: true,
+      passwordHash: hashed,
+      role: '👑 System Owner',
+      isActive: true, // Cannot be suspended
       createdAt: new Date().toISOString(),
-      isOwner: true,
+      isOwner: true, // Permanent Owner Flag
+      permissions: SYSTEM_PERMISSIONS.map((p) => p.id),
     };
 
     const users = [newOwner];
     setStored(STORAGE_KEYS.USERS, users);
 
-    // Log Activity
+    // Track creation
     this.addActivityLog({
       userId: newOwner.id,
       username: newOwner.username,
-      action: 'إعداد مالك النظام',
+      action: 'إعداد حساب المالك',
       module: 'الأمان وإعدادات النظام',
-      details: `تم إنشاء حساب مالك النظام الرئيسي (${newOwner.fullName}) بنجاح لأول مرة`,
+      details: `تم إنشاء حساب مالك النظام الدائم (${newOwner.fullName}) باسم المستخدم (${newOwner.username}) بنجاح`,
     });
 
     return { success: true, user: newOwner };
   },
 
-  // Owner user management operations
+  // Owner user management operations - STRICTLY Owner Only
   createUser(
     creator: User,
     data: {
@@ -148,39 +356,60 @@ export const StorageService = {
       username: string;
       password: string;
       email: string;
-      role: User['role'];
+      phone?: string;
+      department?: string;
+      jobTitle?: string;
+      role: string;
+      permissions?: string[];
     }
   ): { success: boolean; user?: User; error?: string } {
     if (!creator.isOwner) {
-      return { success: false, error: 'فقط مالك النظام يمتلك صلاحية إنشاء مستخدمين جدد.' };
+      return { success: false, error: 'فقط مالك النظام (محمد عبد الغني) يمتلك صلاحية إنشاء مستخدمين.' };
+    }
+
+    if (!data.fullName.trim() || !data.username.trim() || !data.password || !data.email.trim()) {
+      return { success: false, error: 'يرجى إكمال جميع الحقول الإلزامية يدويًا.' };
+    }
+
+    const cleanUsername = data.username.trim();
+    if (cleanUsername.toLowerCase() === 'admin') {
+      return { success: false, error: 'اسم المستخدم "admin" غير مسموح به في النظام.' };
     }
 
     const users = this.getUsers();
-    if (users.some((u) => u.username.toLowerCase() === data.username.toLowerCase().trim())) {
-      return { success: false, error: 'اسم المستخدم مسجل بالفعل.' };
+    if (users.some((u) => u.username.toLowerCase() === cleanUsername.toLowerCase())) {
+      return { success: false, error: 'اسم المستخدم مسجل بالفعل، يرجى اختيار اسم مستخدم آخر يدويًا.' };
     }
+
+    // Secure SHA-256 hash
+    const hashed = hashPassword(data.password);
 
     const newUser: User = {
       id: 'user_' + Date.now(),
       fullName: data.fullName.trim(),
-      username: data.username.trim(),
+      username: cleanUsername,
       email: data.email.trim(),
-      passwordHash: btoa(data.password),
+      phone: data.phone?.trim() || undefined,
+      department: data.department?.trim() || undefined,
+      jobTitle: data.jobTitle?.trim() || undefined,
+      passwordHash: hashed,
       role: data.role,
-      isActive: true,
+      isActive: true, // Default active
       createdAt: new Date().toISOString(),
       isOwner: false,
+      permissions: data.permissions || [],
     };
 
     users.push(newUser);
     setStored(STORAGE_KEYS.USERS, users);
 
+    // Track User Creation
     this.addActivityLog({
       userId: creator.id,
       username: creator.username,
-      action: 'إضافة مستخدم جديد',
+      action: 'إنشاء مستخدم',
       module: 'إدارة المستخدمين',
-      details: `قام المالك بإضافة المستخدم (${newUser.fullName}) برتبة (${newUser.role})`,
+      details: `قام المالك بإنشاء حساب المستخدم (${newUser.fullName}) باسم دخول (${newUser.username}) ودور (${newUser.role})`,
     });
 
     return { success: true, user: newUser };
@@ -189,7 +418,7 @@ export const StorageService = {
   updateUser(
     editor: User,
     userId: string,
-    updates: Partial<Pick<User, 'fullName' | 'email' | 'role' | 'isActive'>>
+    updates: Partial<Pick<User, 'fullName' | 'email' | 'phone' | 'department' | 'jobTitle' | 'role' | 'isActive' | 'permissions'>>
   ): { success: boolean; error?: string } {
     if (!editor.isOwner) {
       return { success: false, error: 'فقط مالك النظام يمتلك صلاحية تعديل المستخدمين.' };
@@ -201,19 +430,44 @@ export const StorageService = {
 
     const targetUser = users[index];
     if (targetUser.isOwner && updates.isActive === false) {
-      return { success: false, error: 'لا يمكن تعطيل حساب مالك النظام نهائياً.' };
+      return { success: false, error: 'لا يمكن إيقاف حساب مالك النظام نهائياً.' };
     }
+
+    const isStatusChanged = updates.isActive !== undefined && updates.isActive !== targetUser.isActive;
+    const isRoleChanged = updates.role !== undefined && updates.role !== targetUser.role;
+    const isPermChanged = updates.permissions !== undefined;
 
     users[index] = { ...targetUser, ...updates };
     setStored(STORAGE_KEYS.USERS, users);
 
-    this.addActivityLog({
-      userId: editor.id,
-      username: editor.username,
-      action: 'تعديل بيانات مستخدم',
-      module: 'إدارة المستخدمين',
-      details: `تم تحديث بيانات المستخدم (${targetUser.fullName})`,
-    });
+    // Track Specific Action
+    if (isStatusChanged) {
+      this.addActivityLog({
+        userId: editor.id,
+        username: editor.username,
+        action: updates.isActive ? 'تفعيل مستخدم' : 'إيقاف مستخدم',
+        module: 'إدارة المستخدمين',
+        details: updates.isActive
+          ? `قام المالك بتفعيل حساب المستخدم (${targetUser.fullName})`
+          : `قام المالك بإيقاف حساب المستخدم (${targetUser.fullName}) - تم إيقاف الحساب بواسطة إدارة النظام`,
+      });
+    } else if (isRoleChanged || isPermChanged) {
+      this.addActivityLog({
+        userId: editor.id,
+        username: editor.username,
+        action: 'تغيير الصلاحيات',
+        module: 'إدارة المستخدمين',
+        details: `قام المالك بتعديل صلاحيات ودور المستخدم (${targetUser.fullName}) إلى (${updates.role || targetUser.role})`,
+      });
+    } else {
+      this.addActivityLog({
+        userId: editor.id,
+        username: editor.username,
+        action: 'تعديل مستخدم',
+        module: 'إدارة المستخدمين',
+        details: `قام المالك بتحديث بيانات المستخدم (${targetUser.fullName})`,
+      });
+    }
 
     return { success: true };
   },
@@ -228,18 +482,19 @@ export const StorageService = {
     if (!targetUser) return { success: false, error: 'المستخدم غير موجود.' };
 
     if (targetUser.isOwner) {
-      return { success: false, error: 'حساب مالك النظام محمي ولا يمكن حذفه قطعيًا.' };
+      return { success: false, error: 'حساب مالك النظام (محمد عبد الغني) محمي نهائياً ولا يمكن حذفه قطعيًا.' };
     }
 
     const updated = users.filter((u) => u.id !== userId);
     setStored(STORAGE_KEYS.USERS, updated);
 
+    // Track User Deletion
     this.addActivityLog({
       userId: editor.id,
       username: editor.username,
       action: 'حذف مستخدم',
       module: 'إدارة المستخدمين',
-      details: `قام المالك بحذف حساب المستخدم (${targetUser.fullName})`,
+      details: `قام المالك بحذف حساب المستخدم (${targetUser.fullName}) نهائياً من النظام`,
     });
 
     return { success: true };
@@ -250,34 +505,44 @@ export const StorageService = {
       return { success: false, error: 'فقط مالك النظام يمكنه إعادة تعيين كلمات المرور.' };
     }
 
+    if (!newPassword || newPassword.length < 6) {
+      return { success: false, error: 'كلمة المرور يجب ألا تقل عن 6 خانات.' };
+    }
+
     const users = this.getUsers();
     const user = users.find((u) => u.id === userId);
     if (!user) return { success: false, error: 'المستخدم غير موجود.' };
 
-    user.passwordHash = btoa(newPassword);
+    // Hash securely
+    user.passwordHash = hashPassword(newPassword);
     setStored(STORAGE_KEYS.USERS, users);
 
+    // Track Password Reset
     this.addActivityLog({
       userId: editor.id,
       username: editor.username,
       action: 'إعادة تعيين كلمة المرور',
       module: 'إدارة المستخدمين',
-      details: `قام المالك بإعادة تعيين كلمة المرور للمستخدم (${user.fullName})`,
+      details: `قام المالك بإعادة تعيين كلمة المرور للمستخدم (${user.fullName}) وتشفيرها بنجاح`,
     });
 
     return { success: true };
   },
 
   // Authentication
-  login(username: string, password: string): { success: boolean; user?: User; error?: string } {
+  login(
+    username: string,
+    password: string,
+    options?: { ownerOnly?: boolean }
+  ): { success: boolean; user?: User; error?: string } {
     const users = this.getUsers();
     const cleanUsername = username.trim();
     const user = users.find((u) => u.username.toLowerCase() === cleanUsername.toLowerCase());
 
     const clientInfo = {
       ip: '127.0.0.1 (محلي آمن)',
-      device: navigator.userAgent.includes('Mobile') ? 'هاتف محمول' : 'جهاز كمبيوتر مكتبي',
-      browser: navigator.userAgent.includes('Chrome') ? 'Google Chrome' : 'متصفح ويب حديث',
+      device: typeof navigator !== 'undefined' && navigator.userAgent.includes('Mobile') ? 'هاتف محمول' : 'جهاز كمبيوتر مكتبي',
+      browser: typeof navigator !== 'undefined' && navigator.userAgent.includes('Chrome') ? 'Google Chrome' : 'متصفح ويب حديث',
     };
 
     if (!user) {
@@ -293,6 +558,21 @@ export const StorageService = {
       return { success: false, error: 'اسم المستخدم أو كلمة المرور غير صحيحة.' };
     }
 
+    // Owner Login Exclusive Check
+    if (options?.ownerOnly && !user.isOwner) {
+      this.recordLoginHistory({
+        id: 'hist_' + Date.now(),
+        userId: user.id,
+        username: user.username,
+        timestamp: new Date().toISOString(),
+        status: 'BLOCKED',
+        reason: 'محاولة دخول غير مصرح بها لصفحة المالك',
+        ...clientInfo,
+      });
+      return { success: false, error: 'هذه الصفحة مخصصة لمالك النظام فقط.' };
+    }
+
+    // Check Suspended Status
     if (!user.isActive) {
       this.recordLoginHistory({
         id: 'hist_' + Date.now(),
@@ -300,13 +580,14 @@ export const StorageService = {
         username: user.username,
         timestamp: new Date().toISOString(),
         status: 'BLOCKED',
-        reason: 'الحساب معطل من قبل مالك النظام',
+        reason: 'تم إيقاف الحساب بواسطة إدارة النظام',
         ...clientInfo,
       });
-      return { success: false, error: 'هذا الحساب تم تعطيله من قِبل مالك النظام.' };
+      return { success: false, error: 'تم إيقاف الحساب بواسطة إدارة النظام.' };
     }
 
-    if (user.passwordHash !== btoa(password)) {
+    // Verify Password Hash
+    if (!verifyPassword(password, user.passwordHash)) {
       this.recordLoginHistory({
         id: 'hist_' + Date.now(),
         userId: user.id,
@@ -344,6 +625,10 @@ export const StorageService = {
     });
 
     return { success: true, user };
+  },
+
+  loginOwner(username: string, password: string): { success: boolean; user?: User; error?: string } {
+    return this.login(username, password, { ownerOnly: true });
   },
 
   getCurrentUser(): User | null {
