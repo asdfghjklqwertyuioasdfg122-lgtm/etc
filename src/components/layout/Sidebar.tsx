@@ -95,7 +95,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         {
           id: 'user-management' as ActiveModule,
-          label: 'إدارة المستخدمين والصلاحيات',
+          label: '👥 إدارة المستخدمين',
           icon: ShieldCheck,
           badge: isUserOwner ? 'خاص بالمالك' : undefined,
         },

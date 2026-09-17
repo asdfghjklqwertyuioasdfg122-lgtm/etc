@@ -21,7 +21,7 @@ import {
   CustomRole,
   RolePermission,
 } from '../types';
-import { hashPassword, verifyPassword } from '../utils/crypto';
+import { hashPassword, verifyPassword, isBcryptHash } from '../utils/crypto';
 
 const STORAGE_KEYS = {
   USERS: 'etc_erp_users_v3',
@@ -263,63 +263,33 @@ export const StorageService = {
   // Users & Setup
   getUsers(): User[] {
     const raw = getStored<User[]>(STORAGE_KEYS.USERS, []);
-    // Strict Sanitization: Remove any demo / sample users (admin, demo, test, etc.)
+    // Strict Sanitization: Remove any demo / sample users (admin, admin123456, demo, test, ahmed, etc.)
     const cleansed = raw.filter((u) => {
       const un = (u.username || '').toLowerCase().trim();
-      return un !== 'admin' && un !== 'demo' && un !== 'test' && un !== 'user';
+      const id = (u.id || '').toLowerCase().trim();
+      return (
+        un !== 'admin' &&
+        un !== 'admin123456' &&
+        un !== 'demo' &&
+        un !== 'test' &&
+        un !== 'user' &&
+        un !== 'ahmed' &&
+        id !== 'user_staff_ahmed' &&
+        id !== 'demo_user'
+      );
     });
 
     // Enforce owner permanent identity
-    const ownerIndex = cleansed.findIndex((u) => u.isOwner === true);
+    const ownerIndex = cleansed.findIndex((u) => u.isOwner === true || u.fullName === 'محمد عبد الغني');
     if (ownerIndex !== -1) {
       cleansed[ownerIndex].fullName = 'محمد عبد الغني';
       cleansed[ownerIndex].role = '👑 System Owner';
       cleansed[ownerIndex].isOwner = true;
-      cleansed[ownerIndex].isActive = true;
-    } else {
-      // Seed permanent System Owner (محمد عبد الغني) and senior staff account
-      const defaultOwner: User = {
-        id: 'owner_mohamed',
-        fullName: 'محمد عبد الغني',
-        username: 'mohamed',
-        email: 'mohamed@etc-erp.com',
-        passwordHash: hashPassword('password123'),
-        role: '👑 System Owner',
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        isOwner: true,
-        permissions: SYSTEM_PERMISSIONS.map((p) => p.id),
-      };
-
-      const defaultStaff: User = {
-        id: 'user_staff_ahmed',
-        fullName: 'أحمد محمود',
-        username: 'ahmed',
-        email: 'ahmed@etc-erp.com',
-        phone: '01012345678',
-        department: 'الإدارة المالية',
-        jobTitle: 'رئيس حسابات',
-        passwordHash: hashPassword('password123'),
-        role: 'رئيس حسابات (Chief Accountant)',
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        isOwner: false,
-        permissions: [
-          'accounting.view',
-          'accounting.create',
-          'accounting.post',
-          'statements.view',
-          'commercial.manage',
-          'tax.manage',
-          'analysis.view',
-          'ai.access',
-        ],
-      };
-
-      cleansed.push(defaultOwner, defaultStaff);
+      cleansed[ownerIndex].isActive = true; // Cannot be disabled
+      cleansed[ownerIndex].permissions = SYSTEM_PERMISSIONS.map((p) => p.id); // Full access
     }
 
-    if (cleansed.length !== raw.length || ownerIndex === -1) {
+    if (cleansed.length !== raw.length) {
       setStored(STORAGE_KEYS.USERS, cleansed);
     }
     return cleansed;
@@ -358,7 +328,7 @@ export const StorageService = {
       return { success: false, error: 'كلمة المرور يجب ألا تقل عن 6 خانات.' };
     }
 
-    // Hash password with SHA-256 and platform salt
+    // Hash password with bcrypt and 10 rounds of cryptographic salt
     const hashed = hashPassword(data.password);
 
     const newOwner: User = {
@@ -422,7 +392,7 @@ export const StorageService = {
       return { success: false, error: 'اسم المستخدم مسجل بالفعل، يرجى اختيار اسم مستخدم آخر يدويًا.' };
     }
 
-    // Secure SHA-256 hash
+    // Secure bcrypt hash with adaptive cost factor
     const hashed = hashPassword(data.password);
 
     const newUser: User = {
@@ -627,9 +597,8 @@ export const StorageService = {
       return { success: false, error: 'تم إيقاف الحساب بواسطة إدارة النظام.' };
     }
 
-    // Verify Password Hash
-    const isDefaultPass = password === 'password123' && (user.username.toLowerCase() === 'mohamed' || user.username.toLowerCase() === 'ahmed');
-    if (!verifyPassword(password, user.passwordHash) && !isDefaultPass) {
+    // Verify Password Hash securely
+    if (!verifyPassword(password, user.passwordHash)) {
       this.recordLoginHistory({
         id: 'hist_' + Date.now(),
         userId: user.id,
@@ -641,11 +610,13 @@ export const StorageService = {
       });
       return { success: false, error: 'اسم المستخدم أو كلمة المرور غير صحيحة.' };
     }
-    if (isDefaultPass && !verifyPassword(password, user.passwordHash)) {
-      user.passwordHash = hashPassword('password123');
-    }
 
     // Success
+    // Transparent migration: Upgrade legacy hash to robust bcrypt hash
+    if (!isBcryptHash(user.passwordHash)) {
+      user.passwordHash = hashPassword(password);
+    }
+
     user.lastLoginAt = new Date().toISOString();
     user.lastLoginIp = clientInfo.ip;
     user.device = clientInfo.device;

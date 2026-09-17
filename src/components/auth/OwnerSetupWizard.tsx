@@ -11,10 +11,10 @@ interface OwnerSetupWizardProps {
 
 export const OwnerSetupWizard: React.FC<OwnerSetupWizardProps> = ({ onOwnerCreated, onComplete }) => {
   const [fullName, setFullName] = useState('محمد عبد الغني');
-  const [username, setUsername] = useState('mohamed');
-  const [password, setPassword] = useState('password123');
-  const [confirmPassword, setConfirmPassword] = useState('password123');
-  const [email, setEmail] = useState('mohamed@etc-erp.com');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -150,8 +150,8 @@ export const OwnerSetupWizard: React.FC<OwnerSetupWizardProps> = ({ onOwnerCreat
                 />
                 <KeyRound className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
               </div>
-              <span className="text-[11px] text-[#0A4DA3] font-semibold mt-1 block">
-                اسم المستخدم الافتراضي لمالك النظام: mohamed (كلمة المرور: password123)
+              <span className="text-[11px] text-slate-500 mt-1 block">
+                يقوم المالك باختيار اسم المستخدم وكلمة المرور يدوياً.
               </span>
             </div>
 

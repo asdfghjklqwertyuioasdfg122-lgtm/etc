@@ -28,7 +28,7 @@ export interface User {
   phone?: string;
   department?: string;
   jobTitle?: string;
-  passwordHash: string; // Stored securely with SHA-256
+  passwordHash: string; // Stored securely using bcrypt with work factor 10
   role: UserRole;
   isActive: boolean; // ✅ نشط / ⛔ موقوف
   createdAt: string;

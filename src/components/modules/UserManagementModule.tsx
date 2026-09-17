@@ -267,7 +267,7 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
     }
   };
 
-  // Reset Password - Manual Entry & SHA-256 Hashing
+  // Reset Password - Manual Entry & Robust bcrypt Hashing
   const handleResetPassword = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
@@ -1334,7 +1334,7 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
 
             <form onSubmit={handleResetPassword} className="space-y-4">
               <p className="text-xs text-slate-500 leading-relaxed">
-                أدخل كلمة المرور الجديدة يدوياً للمستخدم. سيتم تشفيرها فورياً بخوارزمية SHA-256 مع الملح الأمني، ولن تُعرض مرة أخرى.
+                أدخل كلمة المرور الجديدة يدوياً للمستخدم. سيتم تشفيرها فورياً بخوارزمية bcrypt مع ملح أمني عشوائي (Salt) ومعامل تعقيد، ولن تُعرض مرة أخرى.
               </p>
 
               <div>

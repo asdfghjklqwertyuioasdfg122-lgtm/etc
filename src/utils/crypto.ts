@@ -1,6 +1,8 @@
+import bcrypt from 'bcryptjs';
+
 /**
  * Cryptographic utility for password hashing in ETC ERP
- * Provides synchronous SHA-256 with unique platform salt.
+ * Implements robust bcrypt hashing with per-password 128-bit salt and work factor of 10.
  */
 
 function rightRotate(value: number, amount: number): number {
@@ -83,22 +85,58 @@ export function sha256(ascii: string): string {
 }
 
 const PLATFORM_SALT = 'ETC_ERP_SHA256_SALT_SECURE_2026_';
+const BCRYPT_SALT_ROUNDS = 10;
 
-export function hashPassword(password: string): string {
-  return sha256(PLATFORM_SALT + password);
+/**
+ * Validates whether a given hash string follows the standard modular crypt format for bcrypt ($2a$, $2b$, or $2y$).
+ */
+export function isBcryptHash(hash: string): boolean {
+  if (!hash || typeof hash !== 'string') return false;
+  return /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(hash);
 }
 
-export function verifyPassword(password: string, storedHash: string): boolean {
-  // Support both new SHA-256 hash and legacy base64 if existing
-  if (hashPassword(password) === storedHash) {
-    return true;
+/**
+ * Hashes a plaintext password using bcrypt with a cryptographically secure random 128-bit salt
+ * and an adaptive work factor (cost) of 10 rounds.
+ */
+export function hashPassword(password: string): string {
+  if (!password) {
+    throw new Error('Password cannot be empty');
   }
+  return bcrypt.hashSync(password, BCRYPT_SALT_ROUNDS);
+}
+
+/**
+ * Verifies a plaintext password against a stored hash.
+ * Supports:
+ * 1. Standard bcrypt hashes ($2a$, $2b$, $2y$) using constant-time comparison.
+ * 2. Legacy SHA-256 hashes for seamless, zero-downtime migration of pre-existing accounts.
+ *
+ * Plaintext or reversible encodings (such as Base64) are strictly rejected.
+ */
+export function verifyPassword(password: string, storedHash: string): boolean {
+  if (!password || !storedHash) {
+    return false;
+  }
+
+  // 1. Primary: Verify with bcrypt if stored hash is in modular crypt format
+  if (isBcryptHash(storedHash)) {
+    try {
+      return bcrypt.compareSync(password, storedHash);
+    } catch {
+      return false;
+    }
+  }
+
+  // 2. Legacy Fallback: Verify pre-existing salted SHA-256 hashes during migration
   try {
-    if (btoa(password) === storedHash) {
+    const legacyCalculated = sha256(PLATFORM_SALT + password);
+    if (legacyCalculated === storedHash) {
       return true;
     }
   } catch {
-    // ignore
+    // Ignore legacy calculation failures
   }
+
   return false;
 }
