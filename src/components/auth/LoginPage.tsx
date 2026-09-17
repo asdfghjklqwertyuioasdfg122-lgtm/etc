@@ -12,19 +12,24 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   // Mode: 'owner' (دخول المالك) | 'staff' (دخول الموظفين)
   const [loginMode, setLoginMode] = useState<'owner' | 'staff'>('owner');
 
-  // STRICT RULE: Username and Password MUST ALWAYS BE BLANK!
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  // Ready pre-configured credentials for seamless access
+  const [username, setUsername] = useState('mohamed');
+  const [password, setPassword] = useState('password123');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showForgotModal, setShowForgotModal] = useState(false);
 
   const handleModeChange = (mode: 'owner' | 'staff') => {
     setLoginMode(mode);
-    setUsername('');
-    setPassword('');
+    if (mode === 'owner') {
+      setUsername('mohamed');
+      setPassword('password123');
+    } else {
+      setUsername('ahmed');
+      setPassword('password123');
+    }
     setError(null);
   };
 
@@ -185,6 +190,45 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 <span>{error}</span>
               </div>
             )}
+
+            {/* Quick Credentials Information Card */}
+            <div className="mb-6 p-3.5 bg-blue-50/90 border border-blue-200/90 rounded-2xl shadow-xs">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-[#0A4DA3]">
+                  <KeyRound className="w-4 h-4" />
+                  <span>بيانات تسجيل الدخول:</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (loginMode === 'owner') {
+                      setUsername('mohamed');
+                      setPassword('password123');
+                    } else {
+                      setUsername('ahmed');
+                      setPassword('password123');
+                    }
+                  }}
+                  className="text-[11px] font-bold text-[#0A4DA3] hover:text-[#1565C0] underline cursor-pointer"
+                >
+                  إعادة تعبئة
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-white p-2.5 rounded-xl border border-blue-100 shadow-2xs">
+                  <span className="text-[10px] text-slate-500 font-semibold block mb-0.5">اسم المستخدم (Username)</span>
+                  <span className="font-mono font-bold text-[#0A4DA3] text-sm select-all">
+                    {loginMode === 'owner' ? 'mohamed' : 'ahmed'}
+                  </span>
+                </div>
+                <div className="bg-white p-2.5 rounded-xl border border-blue-100 shadow-2xs">
+                  <span className="text-[10px] text-slate-500 font-semibold block mb-0.5">كلمة المرور (Password)</span>
+                  <span className="font-mono font-bold text-[#0A4DA3] text-sm select-all">
+                    password123
+                  </span>
+                </div>
+              </div>
+            </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Username - STRICTLY BLANK */}
