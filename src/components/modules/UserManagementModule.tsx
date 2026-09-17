@@ -32,14 +32,18 @@ import {
 
 interface UserManagementModuleProps {
   currentUser: User;
+  initialTab?: 'users' | 'roles' | 'loginHistory' | 'activityLogs';
 }
 
-export const UserManagementModule: React.FC<UserManagementModuleProps> = ({ currentUser }) => {
+export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
+  currentUser,
+  initialTab = 'users',
+}) => {
   const isOwner = currentUser.isOwner || currentUser.role.includes('Owner');
 
   const [users, setUsers] = useState<User[]>(StorageService.getUsers());
   const [roles, setRoles] = useState<CustomRole[]>(StorageService.getRoles());
-  const [activeTab, setActiveTab] = useState<'users' | 'roles' | 'loginHistory' | 'activityLogs'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'roles' | 'loginHistory' | 'activityLogs'>(initialTab);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended'>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
@@ -98,17 +102,23 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({ curr
     setTimeout(() => setFeedbackMsg(null), 4000);
   };
 
-  // Guard: Strictly Owner Only
-  if (!isOwner) {
+  // Guard: Strictly Owner Only for User & Role administration
+  if (!isOwner && activeTab !== 'activityLogs' && activeTab !== 'loginHistory') {
     return (
       <div className="bg-white rounded-2xl border border-rose-200 p-8 text-center max-w-xl mx-auto shadow-sm">
         <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
           <ShieldAlert className="w-8 h-8" />
         </div>
         <h2 className="text-xl font-bold text-slate-900 mb-2">منطقة محظورة • صلاحية المالك فقط</h2>
-        <p className="text-xs text-slate-600 leading-relaxed">
-          وفقاً لقواعد الأمان والرقابة الصارمة لمنصة ETC، صفحة إدارة المستخدمين والأدوار مخصصة حصرياً لمالك النظام (محمد عبد الغني).
+        <p className="text-xs text-slate-600 leading-relaxed mb-4">
+          وفقاً لقواعد الأمان والرقابة الصارمة لمنصة ETC، صفحة إدارة المستخدمين وتعيين الأدوار مخصصة حصرياً لمالك النظام (محمد عبد الغني).
         </p>
+        <button
+          onClick={() => setActiveTab('activityLogs')}
+          className="px-4 py-2 bg-[#0A4DA3] hover:bg-[#1565C0] text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
+        >
+          الانتقال إلى سجل النشاط والتدقيق الرقابي
+        </button>
       </div>
     );
   }
@@ -343,19 +353,18 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({ curr
     }
   };
 
+  // Handlers
   const handleDeleteRole = (r: CustomRole) => {
     if (r.isSystem || r.id === 'role_owner') {
-      alert('لا يمكن حذف هذا الدور النظامي!');
+      showFeedback('لا يمكن حذف هذا الدور النظامي المحمي!');
       return;
     }
-    if (confirm(`هل أنت متأكد من حذف الدور (${r.name})؟`)) {
-      const res = StorageService.deleteRole(currentUser, r.id);
-      if (res.success) {
-        refreshData();
-        showFeedback(`تم حذف الدور (${r.name}) بنجاح.`);
-      } else {
-        alert(res.error);
-      }
+    const res = StorageService.deleteRole(currentUser, r.id);
+    if (res.success) {
+      refreshData();
+      showFeedback(`تم حذف الدور (${r.name}) بنجاح.`);
+    } else {
+      showFeedback(res.error || 'تعذر حذف هذا الدور.');
     }
   };
 
@@ -394,16 +403,18 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({ curr
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            setFormError(null);
-            setIsAddUserModalOpen(true);
-          }}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0A4DA3] hover:bg-[#1565C0] text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>➕ إضافة مستخدم جديد</span>
-        </button>
+        {isOwner && (
+          <button
+            onClick={() => {
+              setFormError(null);
+              setIsAddUserModalOpen(true);
+            }}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0A4DA3] hover:bg-[#1565C0] text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>➕ إضافة مستخدم جديد</span>
+          </button>
+        )}
       </div>
 
       {/* KPI Stats Overview */}

@@ -13,6 +13,7 @@ import {
 
 interface AcademyModuleProps {
   currentUser: User;
+  initialTab?: 'standards' | 'taxes' | 'academy';
 }
 
 interface StandardItem {
@@ -24,8 +25,11 @@ interface StandardItem {
   keyArticles: string[];
 }
 
-export const AcademyModule: React.FC<AcademyModuleProps> = ({ currentUser }) => {
-  const [activeTab, setActiveTab] = useState<'standards' | 'taxes' | 'academy'>('standards');
+export const AcademyModule: React.FC<AcademyModuleProps> = ({
+  currentUser,
+  initialTab = 'standards',
+}) => {
+  const [activeTab, setActiveTab] = useState<'standards' | 'taxes' | 'academy'>(initialTab);
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>('eas_1');
 

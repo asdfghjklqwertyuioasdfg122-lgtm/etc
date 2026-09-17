@@ -32,7 +32,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, onLogout, onToggleS
   };
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200/90 sticky top-0 z-30 px-4 md:px-6 flex items-center justify-between shadow-xs">
+    <header className="h-16 bg-white border-b border-slate-200/90 sticky top-0 z-30 px-4 md:px-6 flex items-center justify-between shadow-xs lg:mr-64">
       {/* Right side (RTL): Brand and Toggle */}
       <div className="flex items-center gap-3">
         <button

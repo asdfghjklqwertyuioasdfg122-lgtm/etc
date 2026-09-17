@@ -83,7 +83,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ currentUser 
 
   const handleRemoveLine = (idx: number) => {
     if (entryLines.length <= 2) {
-      alert('يجب أن يحتوي القيد المحاسبي على طرفين على الأقل.');
+      setEntryError('يجب أن يحتوي القيد المحاسبي على طرفين على الأقل.');
       return;
     }
     setEntryLines(entryLines.filter((_, i) => i !== idx));

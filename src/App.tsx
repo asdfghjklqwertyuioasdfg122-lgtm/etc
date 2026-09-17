@@ -18,6 +18,7 @@ import { EtcAIAssistantModule } from './components/modules/EtcAIAssistantModule'
 import { FileAnalyzerModule } from './components/modules/FileAnalyzerModule';
 import { AcademyModule } from './components/modules/AcademyModule';
 import { UserManagementModule } from './components/modules/UserManagementModule';
+import { CommunicationModule } from './components/modules/CommunicationModule';
 
 export default function App() {
   const [hasOwner, setHasOwner] = useState<boolean>(StorageService.hasOwner());
@@ -89,7 +90,7 @@ export default function App() {
         />
 
         {/* Dynamic Module Content View */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 lg:mr-64">
           <div className="max-w-7xl mx-auto">
             {activeModule === 'dashboard' && (
               <DashboardModule currentUser={currentUser} onNavigate={setActiveModule} />
@@ -129,6 +130,14 @@ export default function App() {
               <EtcAIAssistantModule currentUser={currentUser} />
             )}
 
+            {activeModule === 'voice-mentor' && (
+              <EtcAIAssistantModule
+                currentUser={currentUser}
+                initialRole="etc_professor"
+                initialVoiceFocus={true}
+              />
+            )}
+
             {activeModule === 'file-analyzer' && (
               <FileAnalyzerModule
                 currentUser={currentUser}
@@ -137,11 +146,23 @@ export default function App() {
             )}
 
             {activeModule === 'academy' && (
-              <AcademyModule currentUser={currentUser} />
+              <AcademyModule currentUser={currentUser} initialTab="academy" />
+            )}
+
+            {activeModule === 'regulations' && (
+              <AcademyModule currentUser={currentUser} initialTab="standards" />
             )}
 
             {activeModule === 'user-management' && (
-              <UserManagementModule currentUser={currentUser} />
+              <UserManagementModule currentUser={currentUser} initialTab="users" />
+            )}
+
+            {activeModule === 'activity-logs' && (
+              <UserManagementModule currentUser={currentUser} initialTab="activityLogs" />
+            )}
+
+            {activeModule === 'communication' && (
+              <CommunicationModule currentUser={currentUser} />
             )}
           </div>
         </main>

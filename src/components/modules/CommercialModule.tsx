@@ -105,10 +105,8 @@ export const CommercialModule: React.FC<CommercialModuleProps> = ({ currentUser 
   };
 
   const handleDeletePartner = (id: string) => {
-    if (confirm('هل أنت متأكد من الحذف؟')) {
-      StorageService.deletePartner(id);
-      refreshData();
-    }
+    StorageService.deletePartner(id);
+    refreshData();
   };
 
   const customersList = partners.filter((p) => p.type === 'Customer');

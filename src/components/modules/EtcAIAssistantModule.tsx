@@ -25,6 +25,8 @@ import { BluePyramidLogo } from '../common/BluePyramidLogo';
 
 interface EtcAIAssistantModuleProps {
   currentUser: User;
+  initialRole?: EtcAIPersona;
+  initialVoiceFocus?: boolean;
 }
 
 interface AiMessageItem {
@@ -50,8 +52,12 @@ export type EtcAIPersona =
   | 'etc_professor'
   | 'colleague';
 
-export const EtcAIAssistantModule: React.FC<EtcAIAssistantModuleProps> = ({ currentUser }) => {
-  const [selectedRole, setSelectedRole] = useState<EtcAIPersona>('auto');
+export const EtcAIAssistantModule: React.FC<EtcAIAssistantModuleProps> = ({
+  currentUser,
+  initialRole = 'auto',
+  initialVoiceFocus = false,
+}) => {
+  const [selectedRole, setSelectedRole] = useState<EtcAIPersona>(initialRole);
   const [messages, setMessages] = useState<AiMessageItem[]>([
     {
       id: 'msg_welcome',
